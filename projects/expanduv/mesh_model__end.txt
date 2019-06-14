@@ -1,0 +1,27 @@
+/*
+#declare Mesh_TextureA=
+  texture{
+    pigment{
+      uv_mapping
+      
+      spiral2 8
+      color_map {
+        [0.5 color rgb <0.2,0,0> ]
+        [0.5 color rgb 1 ]
+      }
+      scale 0.8
+    }
+    finish {
+      specular 0.3
+      roughness 0.01
+    }
+  }
+
+object {
+  Mesh_A
+  //texture { Mesh_TextureA }
+//texture { Chrome_Metal }
+  texture { Soft_Silver }
+  //rotate <0, 0, 90>
+}
+*/

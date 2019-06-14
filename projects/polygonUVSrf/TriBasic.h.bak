@@ -1,0 +1,268 @@
+#ifndef _TRIBASIC_H
+#define _TRIBASIC_H
+#define	ZEPS	(1.0e-15)
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+inline int	LineToPoint(
+	double 	pnt[3],		// (i)	点の座標値
+	double 	bound1[3],	// (i)	線分端点１
+	double 	bound2[3],	// (i)	線分端点２
+	double	dir[3],		// (i)	端点１から２への単位方向ベクトル
+	double	len,		// (i)	線分長
+	double 	npnt[3],	// (o)	最近点
+	double	*dist_p		// (o)	最近距離の２乗
+)
+{
+	if (len > ZEPS) {
+		double	inner = (pnt[0] - bound1[0]) * dir[0] + (pnt[1] - bound1[1]) * dir[1] + (pnt[2] - bound1[2]) * dir[2];
+		if (inner <= 0.0)
+		{
+			npnt[0] = bound1[0];
+			npnt[1] = bound1[1];
+			npnt[2] = bound1[2];
+		}
+		else if (inner >= len)
+		{
+			npnt[0] = bound2[0];
+			npnt[1] = bound2[1];
+			npnt[2] = bound2[2];
+		}
+		else {
+			npnt[0] = bound1[0] + inner * dir[0];
+			npnt[1] = bound1[1] + inner * dir[1];
+			npnt[2] = bound1[2] + inner * dir[2];
+		}
+	}
+	else {
+		npnt[0] = bound1[0];
+		npnt[1] = bound1[1];
+		npnt[2] = bound1[2];
+	}
+
+	*dist_p = (pnt[0] - npnt[0]) *(pnt[0] - npnt[0]) + (pnt[1] - npnt[1]) *(pnt[1] - npnt[1]) + (pnt[2] - npnt[2]) *(pnt[2] - npnt[2]);
+	return 0;
+}
+
+inline int	TriToPointSub(
+	double 	pnt[3],		// (i)	点の座標値
+	double 	vtx1[3],	// (i)	頂点１
+	double 	vtx2[3],	// (i)	頂点２
+	double 	vtx3[3],	// (i)	頂点３
+	double	norml[3],	// (i)	単位法線ベクトル
+	double	dir12[3],	// (i)	頂点１から２への単位ベクトル
+	double	leng12,		// (i)	頂点１から２への距離
+	double	dir23[3],	// (i)	頂点２から３への単位ベクトル
+	double	leng23,		// (i)	頂点２から３への距離
+	double	dir31[3],	// (i)	頂点３から１への単位ベクトル
+	double	leng31,		// (i)	頂点３から１への距離
+	double 	npnt[3],	// (o)	最近点
+	double	*dist_p		// (o)	最近距離の２乗を出力
+)
+{
+
+	if (leng12 < ZEPS && leng23 < ZEPS)
+	{
+		npnt[0] = vtx1[0];
+		npnt[1] = vtx1[1];
+		npnt[2] = vtx1[2];
+		*dist_p = (pnt[0] - npnt[0]) *
+			(pnt[0] - npnt[0]) +
+			(pnt[1] - npnt[1]) *
+			(pnt[1] - npnt[1]) +
+			(pnt[2] - npnt[2]) *
+			(pnt[2] - npnt[2]);
+		return 0;
+	}
+	if (leng12 < ZEPS)
+	{
+		LineToPoint(pnt, vtx1, vtx3, dir23, leng23, npnt, dist_p);
+		return 0;
+	}
+	if (leng23 < ZEPS) {
+		LineToPoint(pnt, vtx1, vtx2, dir12, leng12, npnt, dist_p);
+		return 0;
+	}
+	if (norml[0] * norml[0] + norml[1] * norml[1] + norml[2] * norml[2] < ZEPS) {
+		if (dir12[0] * dir31[0] + dir12[1] * dir31[1] + dir12[2] * dir31[2] > 0.0) {
+			LineToPoint(pnt, vtx2, vtx3, dir23, leng23, npnt, dist_p);
+		}
+		else {
+			if (leng12 > leng31) {
+				LineToPoint(pnt, vtx1, vtx2, dir12, leng12, npnt, dist_p);
+			}
+			else {
+				LineToPoint(pnt, vtx3, vtx1, dir31, leng31, npnt, dist_p);
+			}
+		}
+		return 0;
+	}
+
+	double	vec_diff[3];
+
+	vec_diff[0] = pnt[0] - vtx1[0];
+	vec_diff[1] = pnt[1] - vtx1[1];
+	vec_diff[2] = pnt[2] - vtx1[2];
+
+	const double dotprd = norml[0] * vec_diff[0] + norml[1] * vec_diff[1] + norml[2] * vec_diff[2];
+	double	plane[3];
+	plane[0] = vec_diff[0] - dotprd * norml[0];
+	plane[1] = vec_diff[1] - dotprd * norml[1];
+	plane[2] = vec_diff[2] - dotprd * norml[2];
+	double	plane_on[3];
+	plane_on[0] = vtx1[0] + plane[0];
+	plane_on[1] = vtx1[1] + plane[1];
+	plane_on[2] = vtx1[2] + plane[2];
+
+	const double dotprd1 = plane[0] * dir12[0] + plane[1] * dir12[1] + plane[2] * dir12[2];
+	double	outer[3];
+	outer[0] = plane[1] * dir12[2] - plane[2] * dir12[1];
+	outer[1] = plane[2] * dir12[0] - plane[0] * dir12[2];
+	outer[2] = plane[0] * dir12[1] - plane[1] * dir12[0];
+	const double RL1 = norml[0] * outer[0] + norml[1] * outer[1] + norml[2] * outer[2];
+
+	plane[0] = plane_on[0] - vtx2[0];
+	plane[1] = plane_on[1] - vtx2[1];
+	plane[2] = plane_on[2] - vtx2[2];
+	const double dotprd2 = plane[0] * dir23[0] + plane[1] * dir23[1] + plane[2] * dir23[2];
+	outer[0] = plane[1] * dir23[2] - plane[2] * dir23[1];
+	outer[1] = plane[2] * dir23[0] - plane[0] * dir23[2];
+	outer[2] = plane[0] * dir23[1] - plane[1] * dir23[0];
+	const double RL2 = norml[0] * outer[0] + norml[1] * outer[1] + norml[2] * outer[2];
+
+	plane[0] = plane_on[0] - vtx3[0];
+	plane[1] = plane_on[1] - vtx3[1];
+	plane[2] = plane_on[2] - vtx3[2];
+	const double dotprd3 = plane[0] * dir31[0] + plane[1] * dir31[1] + plane[2] * dir31[2];
+	outer[0] = plane[1] * dir31[2] - plane[2] * dir31[1];
+	outer[1] = plane[2] * dir31[0] - plane[0] * dir31[2];
+	outer[2] = plane[0] * dir31[1] - plane[1] * dir31[0];
+	const double RL3 = norml[0] * outer[0] + norml[1] * outer[1] + norml[2] * outer[2];
+
+	if (RL1 <= 0.0 && RL2 <= 0.0 && RL3 <= 0.0) 
+	{
+		npnt[0] = plane_on[0];
+		npnt[1] = plane_on[1];
+		npnt[2] = plane_on[2];
+		*dist_p = (pnt[0] - npnt[0]) *  (pnt[0] - npnt[0]) + (pnt[1] - npnt[1]) * (pnt[1] - npnt[1]) + (pnt[2] - npnt[2]) * (pnt[2] - npnt[2]);
+		return 0;
+	}
+	else if (dotprd1 >= 0.0 && dotprd1 <= leng12 && RL1 >= 0.0) 
+	{
+		LineToPoint(pnt, vtx1, vtx2, dir12, leng12, npnt, dist_p);
+		return 0;
+	}
+	else if (dotprd2 >= 0.0 && dotprd2 <= leng23 && RL2 >= 0.0) 
+	{
+		LineToPoint(pnt, vtx2, vtx3, dir23, leng23, npnt, dist_p);
+		return 0;
+	}
+	else if (dotprd3 >= 0.0 && dotprd3 <= leng31 && RL3 >= 0.0) 
+	{
+		LineToPoint(pnt, vtx3, vtx1, dir31, leng31, npnt, dist_p);
+		return 0;
+	}
+	else if (dotprd1 <= 0.0 && dotprd3 >= leng31) 
+	{
+		npnt[0] = vtx1[0];
+		npnt[1] = vtx1[1];
+		npnt[2] = vtx1[2];
+		*dist_p = (pnt[0] - npnt[0]) *  (pnt[0] - npnt[0]) + (pnt[1] - npnt[1]) * (pnt[1] - npnt[1]) + (pnt[2] - npnt[2]) * (pnt[2] - npnt[2]);
+		return 0;
+	}
+	else if (dotprd2 <= 0.0 && dotprd1 >= leng12) 
+	{
+		npnt[0] = vtx2[0];
+		npnt[1] = vtx2[1];
+		npnt[2] = vtx2[2];
+		*dist_p = (pnt[0] - npnt[0]) *  (pnt[0] - npnt[0]) + (pnt[1] - npnt[1]) * (pnt[1] - npnt[1]) + (pnt[2] - npnt[2]) * (pnt[2] - npnt[2]);
+		return 0;
+	}
+	else if (dotprd3 <= 0.0 && dotprd2 >= leng23) 
+	{
+		npnt[0] = vtx3[0];
+		npnt[1] = vtx3[1];
+		npnt[2] = vtx3[2];
+		*dist_p = (pnt[0] - npnt[0]) *  (pnt[0] - npnt[0]) + (pnt[1] - npnt[1]) * (pnt[1] - npnt[1]) + (pnt[2] - npnt[2]) * (pnt[2] - npnt[2]);
+		return 0;
+	}
+	return -1;
+}
+
+inline int	TriToPoint(
+	double 	pnt[3],		// (i)	点の座標値
+	double 	vertex1[3],	// (i)	頂点１
+	double 	vertex2[3],	// (i)	頂点２
+	double 	vertex3[3],	// (i)	頂点３
+	double 	npnt[3],	// (o)	最近点
+	double	*dist_p		// (o)	最近距離の２乗
+)
+{
+
+	int status = 0;
+
+	double	dir1[3];
+	double	dir2[3];
+	double	dir3[3];
+	dir1[0] = vertex2[0] - vertex1[0];
+	dir1[1] = vertex2[1] - vertex1[1];
+	dir1[2] = vertex2[2] - vertex1[2];
+	dir2[0] = vertex3[0] - vertex2[0];
+	dir2[1] = vertex3[1] - vertex2[1];
+	dir2[2] = vertex3[2] - vertex2[2];
+	dir3[0] = vertex1[0] - vertex3[0];
+	dir3[1] = vertex1[1] - vertex3[1];
+	dir3[2] = vertex1[2] - vertex3[2];
+
+	double	normal[3];
+	normal[0] = dir1[2] * dir3[1] - dir1[1] * dir3[2];
+	normal[1] = dir1[0] * dir3[2] - dir1[2] * dir3[0];
+	normal[2] = dir1[1] * dir3[0] - dir1[0] * dir3[1];
+	const double length = sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+	if (length > ZEPS)
+	{
+		normal[0] = normal[0] / length;
+		normal[1] = normal[1] / length;
+		normal[2] = normal[2] / length;
+	}
+
+	double	udir1[3];
+	double	udir2[3];
+	double	udir3[3];
+
+	const double length1 = sqrt(dir1[0] * dir1[0] + dir1[1] * dir1[1] + dir1[2] * dir1[2]);
+	if (length1 > ZEPS)
+	{
+		udir1[0] = dir1[0] / length1;
+		udir1[1] = dir1[1] / length1;
+		udir1[2] = dir1[2] / length1;
+	}
+	const double length2 = sqrt(dir2[0] * dir2[0] + dir2[1] * dir2[1] + dir2[2] * dir2[2]);
+	if (length2 > ZEPS)
+	{
+		udir2[0] = dir2[0] / length2;
+		udir2[1] = dir2[1] / length2;
+		udir2[2] = dir2[2] / length2;
+	}
+	const double length3 = sqrt(dir3[0] * dir3[0] + dir3[1] * dir3[1] + dir3[2] * dir3[2]);
+	if (length3 > ZEPS)
+	{
+		udir3[0] = dir3[0] / length3;
+		udir3[1] = dir3[1] / length3;
+		udir3[2] = dir3[2] / length3;
+	}
+
+	TriToPointSub(pnt, vertex1, vertex2, vertex3, normal,
+		udir1, length1, udir2, length2,
+		udir3, length3, npnt, dist_p);
+	return 0;
+}
+
+#ifdef __cplusplus
+};
+#endif
+
+#endif
+

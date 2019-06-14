@@ -1,0 +1,226 @@
+/** \defgroup context Context management
+ *  Structures and functions for managing GI contexts.
+ */
+
+/** \defgroup state State management
+ *  Functions for querrying and setting GI state.
+ */
+
+/** \defgroup mesh Mesh handling
+ *  Structures and functions for working with triangular meshes.
+ */
+
+/** \defgroup cutting Mesh cutting
+ *  Structures and functions for cutting and patchifying meshes.
+ */
+
+/** \defgroup parameterization Parameterization
+ *  Structures and functions for parameterizing triangular meshes.
+ */
+
+/** \defgroup image Image handling
+ *  Structures and functions for working with images.
+ */
+
+/** \defgroup sampling Sampling
+ *  Structures and functions for sampling mesh attributes to images.
+ */
+
+/** \defgroup error Error handling
+ *  Functions for working with unexpected errors.
+ */
+
+/** \defgroup opengl OpenGL interoperability
+ *  Structures and functions for interoperating with the OpenGL.
+ */
+
+/** \internal
+ *  \defgroup container Generic containers
+ *  \brief Structures and Functions for generic containers.
+ */
+
+/** \internal
+ *  \defgroup math Mathematics
+ *  \brief Types and Functions for vector arithmetic.
+ */
+ 
+/** \internal
+ *  \defgroup numerics Numerics
+ *  \brief Structures and functions for numerical linear algebra.
+ */
+
+/** \internal
+ *  \defgroup threads Multithreading
+ *  \brief Types and functions for platform independent multithreading.
+ */
+
+/** \internal
+ *  \defgroup memory Memory management
+ *  \brief Structures and functions for memory management.
+ */
+
+/** \internal
+ *  \defgroup mrm Multiresolution modeling
+ *  \brief Structures and functions for multiresolution modeling.
+ */
+
+/** \mainpage
+ *  OpenGI is a platform-independent open-source C-library for parameterizing 
+ *  triangular meshes and creating Geometry Images from this parameterization.
+ *
+ *  <h2>Usage Example</h2>
+ *  At this point some sourcecode from the \e gim example is presented, 
+ *  demonstrating the use of OpenGI in a simple Geometry Image creator/viewer. 
+ *  I will only show the OpenGI related parts in the sequence they are executed. 
+ *  The whole project can be found together with the source distribution of OpenGI.
+ *
+ *  First we need some global variables storing our OpenGI and OpenGL objects.
+ *  \code
+ *  unsigned int uiMesh;        // mesh object
+ *  unsigned int uiGIM[3];      // image objects
+ *  unsigned int uiPattern;     // checkerboard texture
+ *  void GICALLBACK errorCB(unsigned int error, void *data);
+ *  \endcode
+ *
+ *  In the \c main function we first create an OpenGI context and set an error 
+ *  callback function. This error callback just prints the error string to the standard 
+ *  output, which would OpenGI do by default, when compiled with verbosity enabled.
+ *  \code
+ int main(int argc, char *argv[])
+ {
+ *  	...
+ *  	GIcontext pContext = giCreateContext();
+ *  	giMakeCurrent(pContext);
+ *  	giErrorCallback(errorCB, NULL);
+ *  \endcode
+ *
+ *  Next, our mesh has to be created from a set of arrays, which are actually 
+ *  read from a file, but this is unimportant here. First we will tell OpenGI 
+ *  where it can find some special attributes. We will use attribute 0 for vertex 
+ *  positions (default anyway) and 2 for the parameter coordinates (and 1 for the 
+ *  normals, but that does not care OpenGI). Then we set and enable the arrays for 
+ *  our attributes. We only want to set positions and normals, params are created 
+ *  during parameterization.
+ *  \code
+ *  	giBindAttrib(GI_POSITION_ATTRIB, 0);
+ *  	giBindAttrib(GI_PARAM_ATTRIB, 2);
+ *  	giAttribPointer(0, 3, GI_FALSE, 0, pVertices);
+ *  	giAttribPointer(1, 3, GI_TRUE, 0, pNormals);
+ *  	giEnableAttribArray(0);
+ *  	giEnableAttribArray(1);
+ *  \endcode
+ *
+ *  Now we can create our mesh from these arrays with an appropriate index array.
+ *  \code
+ *  	uiMesh = giGenMesh();
+ *  	giBindMesh(uiMesh);
+ *  	giIndexedMesh(0, iNumVertices-1, iNumIndices, pIndices);
+ *  \endcode
+ *
+ *  First we have to cut the mesh into a topological disc.
+ *  \code
+ *  	giCutterParameteri(GI_CUTTER, GI_INITIAL_GIM);
+ *  	giCut();
+ *  \endcode
+ *
+ *  When this is done, we parameterize the mesh. The parameters set here 
+ *  (except for the resolution) are actually the default ones but are set 
+ *  here for the sake of completeness.
+ *  \code
+ *  	giParameterizerParameteri(GI_PARAMETERIZER, GI_STRETCH_MINIMIZING);
+ *  	giParameterizerParameteri(GI_INITIAL_PARAMETERIZATION, GI_MEAN_VALUE);
+ *  	giParameterizerParameterf(GI_STRETCH_WEIGHT, 1.0f);
+ *  	giParameterizerParameteri(GI_PARAM_RESOLUTION, res);
+ *  	giParameterize();
+ *  \endcode
+ *
+ *  When the mesh is parameterized we can sample its attributes into the image. 
+ *  But first we have to create the storage needed for the images. All images 
+ *  will be stored in textures, so we need to create three textures, one for the 
+ *  geometry and the normal data each and a third one, which is not sampled into, 
+ *  containing a checkerboard pattern for visualizing the parameterization.
+ *  \code
+ *  	glGenTextures(2, uiTex);
+ *  	glBindTexture(GL_TEXTURE_2D, uiTex[0]);
+ *  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+ *  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+ *  	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, res, res, 0, 
+ *  		GL_RGBA, GL_FLOAT, NULL);
+ *
+ *  	int iNRes = (res&1) ? (res<<1)-1 : (res<<1);
+ *  	glBindTexture(GL_TEXTURE_2D, uiTex[1]);
+ *  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+ *  	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, iNRes, iNRes, 0, 
+ *  		GL_RGB, GL_UNSIGNED_BYTE, NULL);
+ *
+ *  	glGenTextures(1, &uiPattern);
+ *  	glBindTexture(GL_TEXTURE_2D, uiPattern);
+ *  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+ *  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+ *  	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+ *  	glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, 256, 256, 0, 
+ *  		GL_LUMINANCE, GL_UNSIGNED_BYTE, checkerboard);
+ *  \endcode
+ *
+ *  Now we can create the images for the three attributes and tell them that 
+ *  they are stored in OpenGL textures.
+ *  \code
+ *  	giGenImages(3, gim);
+ *  	giBindImage(gim[0]);
+ *  	giImageGLTextureData(res, res, 4, GI_FLOAT, uiTex[0]);
+ *  	giBindImage(gim[1]);
+ *  	giImageGLTextureData(iNRes, iNRes, 3, GI_UNSIGNED_BYTE, uiTex[1]);
+ *  	giBindImage(gim[2]);
+ *  	giImageGLTextureData(256, 256, 1, GI_UNSIGNED_BYTE, uiPattern);
+ *  \endcode
+ *
+ *  We bind the images to the attribute we want to get sampled into them. We 
+ *  only want to sample the positions and normals (0 and 1) as image 2 already 
+ *  contains useful data. Then we tell the sampler to renormalize attribute 1 
+ *  after interpolation, as it contains the normals.
+ *  \code
+ *  	giAttribImage(0, gim[0]);
+ *  	giAttribImage(1, gim[1]);
+ *  	giAttribImage(2, 0);
+ *  	giSamplerParameteri(GI_SAMPLER, GI_SAMPLER_SOFTWARE);
+ *  	giAttribSamplerParameteri(0, GI_SAMPLING_MODE, GI_SAMPLE_DEFAULT);
+ *  	giAttribSamplerParameteri(1, GI_SAMPLING_MODE, GI_SAMPLE_NORMALIZED);
+ *  	giSample();
+ *  \endcode
+ *  Now we can look at our \c display function, that is executed every frame. 
+ *  With \e iDrawMesh in {0,1} we can decide if we draw the mesh or the geometry 
+ *  image and with \e iParam in {0,1} if we want to visualize the parameterization. 
+ *  We will use attribute 0 as positions, 1 as normals and 2 as texture coordinates 
+ *  when rendering the mesh and its image as texture when rendering the geometry 
+ *  image (but only if we want to visualize the parameter coordinates). Note that 
+ *  the mesh and image bindings are not neccessary here, as they should still be 
+ *  bound. Also in practice it would be a good idea to build the mesh rendering 
+ *  into a display list.
+ *  \code
+ void display()
+ {
+ *  	...
+ *  	giGLAttribRenderParameteri(0, GI_GL_RENDER_SEMANTIC, GI_GL_VERTEX);
+ *  	giGLAttribRenderParameteri(1, GI_GL_RENDER_SEMANTIC, GI_GL_NORMAL);
+ *  	giGLAttribRenderParameteri(2, GI_GL_RENDER_SEMANTIC, iParam ? GI_GL_TEXTURE_COORD : GI_NONE);
+ *  	giGLAttribRenderParameteri(2, GI_GL_RENDER_CHANNEL, 0);
+ *  	if(iDrawMesh) {
+ *  		if(iParam) {
+ *  			glBindTexture(GL_TEXTURE_2D, uiPattern);
+ *  			glEnable(GL_TEXTURE_2D);
+ *  		}
+ *  		giBindMesh(uiMesh);
+ *  		giGLDrawMesh();
+ *  	} else {
+ *  		giAttribImage(0, uiGIM[0]);
+ *  		giAttribImage(1, uiGIM[1]);
+ *  		if(iParam) {
+ *  			giAttribImage(2, uiGIM[2]);
+ *  			giGLAttribRenderParameteri(2, GI_TEXTURE_COORD_DOMAIN, GI_UNIT_SQUARE);
+ *  		}
+ *  		giGLDrawGIM();
+ *  	}
+ *  	...
+ }
+ *  \endcode
+ */
