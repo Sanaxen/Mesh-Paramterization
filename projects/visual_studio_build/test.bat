@@ -1,5 +1,5 @@
 :set ldm=..\..\bin\gim.exe
-set ldm=..\..\bin\ParameterizeMeshSolver.exe
+set ldm=..\..\x64\bin\ParameterizeMeshSolver.exe
 
 set datapath=..\..\examples\gim
 copy ..\..\examples\test_data %datapath% /v /y
