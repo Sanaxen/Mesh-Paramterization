@@ -49,54 +49,96 @@ inline int	LineToPoint(
 	return 0;
 }
 
-inline int	TriToPointSub(
+inline int	TriToPoint(
 	double pnt[3],		// (i) Coordinate value of point
-	double vtx1[3],		// (i) vertex 1
-	double vtx2[3],		// (i) vertex 2
-	double vtx3[3],		// (i) vertex 3
-	double norml[3],	// (i) Unit normal vector
-	double dir12[3],	// (i) Unit vector from vertices 1 to 2
-	double leng12,		// (i) distance from vertex 1 to 2
-	double dir23[3],	// (i) Unit vector from vertices 2 to 3
-	double leng23,		// (i) distance from vertex 2 to 3
-	double dir31[3],	// (i) Unit vector from vertex 3 to 1
-	double leng31,		// (i) distance from vertex 3 to 1
+	double vertex1[3],		// (i) vertex 1
+	double vertex2[3],		// (i) vertex 2
+	double vertex3[3],		// (i) vertex 3
 	double npnt[3],		// (o) nearest point
 	double * dist_p		// (o) output the square of the nearest distance)
 )
 {
+	double dir12[3];
+	double dir23[3];
+	double dir31[3];
 
-	if (leng12 < ZERO_VALUE && leng23 < ZERO_VALUE)
+	dir12[0] = vertex2[0] - vertex1[0];
+	dir12[1] = vertex2[1] - vertex1[1];	
+	dir12[2] = vertex2[2] - vertex1[2];
+	
+	dir23[0] = vertex3[0] - vertex2[0];
+	dir23[1] = vertex3[1] - vertex2[1];
+	dir23[2] = vertex3[2] - vertex2[2];
+	
+	dir31[0] = vertex1[0] - vertex3[0];
+	dir31[1] = vertex1[1] - vertex3[1];
+	dir31[2] = vertex1[2] - vertex3[2];
+
+	const double length12 = sqrt(DOT(dir12, dir12));
+	if (length12 > ZERO_VALUE)
 	{
-		npnt[0] = vtx1[0];
-		npnt[1] = vtx1[1];
-		npnt[2] = vtx1[2];
+		dir12[0] = dir12[0] / length12;
+		dir12[1] = dir12[1] / length12;
+		dir12[2] = dir12[2] / length12;
+	}
+	const double length23 = sqrt(DOT(dir23, dir23));
+	if (length23 > ZERO_VALUE)
+	{
+		dir23[0] = dir23[0] / length23;
+		dir23[1] = dir23[1] / length23;
+		dir23[2] = dir23[2] / length23;
+	}
+	const double length31 = sqrt(DOT(dir31, dir31));
+	if (length31 > ZERO_VALUE)
+	{
+		dir31[0] = dir31[0] / length31;
+		dir31[1] = dir31[1] / length31;
+		dir31[2] = dir31[2] / length31;
+	}
+
+	double	normal[3];
+	normal[0] = dir12[2] * dir31[1] - dir12[1] * dir31[2];
+	normal[1] = dir12[0] * dir31[2] - dir12[2] * dir31[0];
+	normal[2] = dir12[1] * dir31[0] - dir12[0] * dir31[1];
+	const double length = sqrt(DOT(normal, normal));
+	if (length > ZERO_VALUE)
+	{
+		normal[0] = normal[0] / length;
+		normal[1] = normal[1] / length;
+		normal[2] = normal[2] / length;
+	}
+
+	if (length12 < ZERO_VALUE && length23 < ZERO_VALUE)
+	{
+		npnt[0] = vertex1[0];
+		npnt[1] = vertex1[1];
+		npnt[2] = vertex1[2];
 		*dist_p = 
 			(pnt[0] - npnt[0]) * (pnt[0] - npnt[0]) +
 			(pnt[1] - npnt[1]) * (pnt[1] - npnt[1]) +
 			(pnt[2] - npnt[2]) * (pnt[2] - npnt[2]);
 		return 0;
 	}
-	if (leng12 < ZERO_VALUE)
+	if (length12 < ZERO_VALUE)
 	{
-		LineToPoint(pnt, vtx1, vtx3, dir23, leng23, npnt, dist_p);
+		LineToPoint(pnt, vertex1, vertex3, dir23, length23, npnt, dist_p);
 		return 0;
 	}
-	if (leng23 < ZERO_VALUE) {
-		LineToPoint(pnt, vtx1, vtx2, dir12, leng12, npnt, dist_p);
+	if (length23 < ZERO_VALUE) {
+		LineToPoint(pnt, vertex1, vertex2, dir12, length12, npnt, dist_p);
 		return 0;
 	}
-	if (DOT(norml, norml) < ZERO_VALUE) 
+	if (DOT(normal, normal) < ZERO_VALUE)
 	{
 		if (DOT(dir12,dir31) > 0.0) {
-			LineToPoint(pnt, vtx2, vtx3, dir23, leng23, npnt, dist_p);
+			LineToPoint(pnt, vertex2, vertex3, dir23, length23, npnt, dist_p);
 		}
 		else {
-			if (leng12 > leng31) {
-				LineToPoint(pnt, vtx1, vtx2, dir12, leng12, npnt, dist_p);
+			if (length12 > length31) {
+				LineToPoint(pnt, vertex1, vertex2, dir12, length12, npnt, dist_p);
 			}
 			else {
-				LineToPoint(pnt, vtx3, vtx1, dir31, leng31, npnt, dist_p);
+				LineToPoint(pnt, vertex3, vertex1, dir31, length31, npnt, dist_p);
 			}
 		}
 		return 0;
@@ -104,44 +146,44 @@ inline int	TriToPointSub(
 
 	double	vec_diff[3];
 
-	vec_diff[0] = pnt[0] - vtx1[0];
-	vec_diff[1] = pnt[1] - vtx1[1];
-	vec_diff[2] = pnt[2] - vtx1[2];
+	vec_diff[0] = pnt[0] - vertex1[0];
+	vec_diff[1] = pnt[1] - vertex1[1];
+	vec_diff[2] = pnt[2] - vertex1[2];
 
-	const double dotprd = DOT(norml, vec_diff);
+	const double dotprd = DOT(normal, vec_diff);
 	double	plane[3];
-	plane[0] = vec_diff[0] - dotprd * norml[0];
-	plane[1] = vec_diff[1] - dotprd * norml[1];
-	plane[2] = vec_diff[2] - dotprd * norml[2];
+	plane[0] = vec_diff[0] - dotprd * normal[0];
+	plane[1] = vec_diff[1] - dotprd * normal[1];
+	plane[2] = vec_diff[2] - dotprd * normal[2];
 	double	plane_on[3];
-	plane_on[0] = vtx1[0] + plane[0];
-	plane_on[1] = vtx1[1] + plane[1];
-	plane_on[2] = vtx1[2] + plane[2];
+	plane_on[0] = vertex1[0] + plane[0];
+	plane_on[1] = vertex1[1] + plane[1];
+	plane_on[2] = vertex1[2] + plane[2];
 
 	const double dotprd1 = DOT(plane, dir12);
 	double	outer[3];
 	outer[0] = plane[1] * dir12[2] - plane[2] * dir12[1];
 	outer[1] = plane[2] * dir12[0] - plane[0] * dir12[2];
 	outer[2] = plane[0] * dir12[1] - plane[1] * dir12[0];
-	const double RL1 = DOT(norml, outer);
+	const double RL1 = DOT(normal, outer);
 
-	plane[0] = plane_on[0] - vtx2[0];
-	plane[1] = plane_on[1] - vtx2[1];
-	plane[2] = plane_on[2] - vtx2[2];
+	plane[0] = plane_on[0] - vertex2[0];
+	plane[1] = plane_on[1] - vertex2[1];
+	plane[2] = plane_on[2] - vertex2[2];
 	const double dotprd2 = DOT(plane, dir23);
 	outer[0] = plane[1] * dir23[2] - plane[2] * dir23[1];
 	outer[1] = plane[2] * dir23[0] - plane[0] * dir23[2];
 	outer[2] = plane[0] * dir23[1] - plane[1] * dir23[0];
-	const double RL2 = DOT(norml, outer);
+	const double RL2 = DOT(normal, outer);
 
-	plane[0] = plane_on[0] - vtx3[0];
-	plane[1] = plane_on[1] - vtx3[1];
-	plane[2] = plane_on[2] - vtx3[2];
+	plane[0] = plane_on[0] - vertex3[0];
+	plane[1] = plane_on[1] - vertex3[1];
+	plane[2] = plane_on[2] - vertex3[2];
 	const double dotprd3 = DOT(plane, dir31);
 	outer[0] = plane[1] * dir31[2] - plane[2] * dir31[1];
 	outer[1] = plane[2] * dir31[0] - plane[0] * dir31[2];
 	outer[2] = plane[0] * dir31[1] - plane[1] * dir31[0];
-	const double RL3 = DOT(norml, outer);
+	const double RL3 = DOT(normal, outer);
 
 	if (RL1 <= 0.0 && RL2 <= 0.0 && RL3 <= 0.0) 
 	{
@@ -151,108 +193,48 @@ inline int	TriToPointSub(
 		*dist_p = (pnt[0] - npnt[0]) *  (pnt[0] - npnt[0]) + (pnt[1] - npnt[1]) * (pnt[1] - npnt[1]) + (pnt[2] - npnt[2]) * (pnt[2] - npnt[2]);
 		return 0;
 	}
-	else if (dotprd1 >= 0.0 && dotprd1 <= leng12 && RL1 >= 0.0) 
+	else if (dotprd1 >= 0.0 && dotprd1 <= length12 && RL1 >= 0.0) 
 	{
-		LineToPoint(pnt, vtx1, vtx2, dir12, leng12, npnt, dist_p);
+		LineToPoint(pnt, vertex1, vertex2, dir12, length12, npnt, dist_p);
 		return 0;
 	}
-	else if (dotprd2 >= 0.0 && dotprd2 <= leng23 && RL2 >= 0.0) 
+	else if (dotprd2 >= 0.0 && dotprd2 <= length23 && RL2 >= 0.0) 
 	{
-		LineToPoint(pnt, vtx2, vtx3, dir23, leng23, npnt, dist_p);
+		LineToPoint(pnt, vertex2, vertex3, dir23, length23, npnt, dist_p);
 		return 0;
 	}
-	else if (dotprd3 >= 0.0 && dotprd3 <= leng31 && RL3 >= 0.0) 
+	else if (dotprd3 >= 0.0 && dotprd3 <= length31 && RL3 >= 0.0) 
 	{
-		LineToPoint(pnt, vtx3, vtx1, dir31, leng31, npnt, dist_p);
+		LineToPoint(pnt, vertex3, vertex1, dir31, length31, npnt, dist_p);
 		return 0;
 	}
-	else if (dotprd1 <= 0.0 && dotprd3 >= leng31) 
+	else if (dotprd1 <= 0.0 && dotprd3 >= length31) 
 	{
-		npnt[0] = vtx1[0];
-		npnt[1] = vtx1[1];
-		npnt[2] = vtx1[2];
+		npnt[0] = vertex1[0];
+		npnt[1] = vertex1[1];
+		npnt[2] = vertex1[2];
 		*dist_p = (pnt[0] - npnt[0]) *  (pnt[0] - npnt[0]) + (pnt[1] - npnt[1]) * (pnt[1] - npnt[1]) + (pnt[2] - npnt[2]) * (pnt[2] - npnt[2]);
 		return 0;
 	}
-	else if (dotprd2 <= 0.0 && dotprd1 >= leng12) 
+	else if (dotprd2 <= 0.0 && dotprd1 >= length12) 
 	{
-		npnt[0] = vtx2[0];
-		npnt[1] = vtx2[1];
-		npnt[2] = vtx2[2];
+		npnt[0] = vertex2[0];
+		npnt[1] = vertex2[1];
+		npnt[2] = vertex2[2];
 		*dist_p = (pnt[0] - npnt[0]) *  (pnt[0] - npnt[0]) + (pnt[1] - npnt[1]) * (pnt[1] - npnt[1]) + (pnt[2] - npnt[2]) * (pnt[2] - npnt[2]);
 		return 0;
 	}
-	else if (dotprd3 <= 0.0 && dotprd2 >= leng23) 
+	else if (dotprd3 <= 0.0 && dotprd2 >= length23) 
 	{
-		npnt[0] = vtx3[0];
-		npnt[1] = vtx3[1];
-		npnt[2] = vtx3[2];
+		npnt[0] = vertex3[0];
+		npnt[1] = vertex3[1];
+		npnt[2] = vertex3[2];
 		*dist_p = (pnt[0] - npnt[0]) *  (pnt[0] - npnt[0]) + (pnt[1] - npnt[1]) * (pnt[1] - npnt[1]) + (pnt[2] - npnt[2]) * (pnt[2] - npnt[2]);
 		return 0;
 	}
 	return -1;
 }
 
-inline int	TriToPoint(
-	double pnt[3],		// (i) Coordinate value of point
-	double vertex1[3],	// (i) vertex 1
-	double vertex2[3],	// (i) vertex 2
-	double vertex3[3],	// (i) vertex 3
-	double npnt[3],		// (o) nearest point
-	double * dist_p		// (o) nearest distance squared)
-)
-{
-
-	double	dir1[3];
-	double	dir2[3];
-	double	dir3[3];
-	dir1[0] = vertex2[0] - vertex1[0];	dir1[1] = vertex2[1] - vertex1[1];	dir1[2] = vertex2[2] - vertex1[2];
-	dir2[0] = vertex3[0] - vertex2[0];	dir2[1] = vertex3[1] - vertex2[1];	dir2[2] = vertex3[2] - vertex2[2];
-	dir3[0] = vertex1[0] - vertex3[0];	dir3[1] = vertex1[1] - vertex3[1];	dir3[2] = vertex1[2] - vertex3[2];
-
-	double	normal[3];
-	normal[0] = dir1[2] * dir3[1] - dir1[1] * dir3[2];
-	normal[1] = dir1[0] * dir3[2] - dir1[2] * dir3[0];
-	normal[2] = dir1[1] * dir3[0] - dir1[0] * dir3[1];
-	const double length = sqrt(DOT(normal, normal));
-	if (length > ZERO_VALUE)
-	{
-		normal[0] = normal[0] / length;
-		normal[1] = normal[1] / length;
-		normal[2] = normal[2] / length;
-	}
-
-	double	udir1[3];
-	double	udir2[3];
-	double	udir3[3];
-
-	const double length1 = sqrt(DOT(dir1, dir1));
-	if (length1 > ZERO_VALUE)
-	{
-		udir1[0] = dir1[0] / length1;
-		udir1[1] = dir1[1] / length1;
-		udir1[2] = dir1[2] / length1;
-	}
-	const double length2 = sqrt(DOT(dir2, dir2));
-	if (length2 > ZERO_VALUE)
-	{
-		udir2[0] = dir2[0] / length2;
-		udir2[1] = dir2[1] / length2;
-		udir2[2] = dir2[2] / length2;
-	}
-	const double length3 = sqrt(DOT(dir3, dir3));
-	if (length3 > ZERO_VALUE)
-	{
-		udir3[0] = dir3[0] / length3;
-		udir3[1] = dir3[1] / length3;
-		udir3[2] = dir3[2] / length3;
-	}
-
-	TriToPointSub(pnt, vertex1, vertex2, vertex3, normal,
-		udir1, length1, udir2, length2,
-		udir3, length3, npnt, dist_p);
-	return 0;
-}
 
 #ifdef __cplusplus
 };
